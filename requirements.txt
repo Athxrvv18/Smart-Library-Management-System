@@ -1,0 +1,41 @@
+⚙️ System Requirements
+
+🔹 Hardware Requirements
+Raspberry Pi 4 Model B or Raspberry Pi Zero 2 W
+
+Raspberry Pi Camera Module V2
+
+Breadboard
+
+Jumper wires
+
+LEDs (for status indication)
+
+Resistors
+
+MicroSD card (32GB recommended)
+
+Power supply for Raspberry Pi
+
+🔹 Software Requirements
+
+Python
+
+OpenCV (for face recognition)
+
+SQLite or MySQL (database)
+
+Raspberry Pi OS
+
+Git (version control)
+
+Visual Studio Code or any code editor
+
+🔹 Python Libraries
+
+opencv-python
+numpy
+face-recognition
+sqlite3
+flask
+RPi.GPIO
