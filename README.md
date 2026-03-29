@@ -245,8 +245,16 @@ python main.py
 
 ## 👨‍💻 Author
 
-**Atharv**
-Computer Science Engineering Student
+## 👨‍💻 Author
+
+**Atharv Pujari**
+
+Driven by a passion for Computer Science, with hands-on experience in developing IoT-based systems and automation solutions. Interested in building scalable and intelligent systems using Python, computer vision, and embedded technologies.
+
+📬 Connect:
+
+* GitHub: https://github.com/Athxrvv18
+* LinkedIn: https://www.linkedin.com/in/atharvpujari/
 
 ---
 
