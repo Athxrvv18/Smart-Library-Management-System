@@ -6,14 +6,41 @@ import RPi.GPIO as GPIO
 from datetime import datetime, timedelta
 from RPLCD.i2c import CharLCD
 
-# ------------------- LCD SETUP -------------------
+# ------------------- LCD -------------------
 lcd = CharLCD('PCF8574', 0x27)
 
-def lcd_print(line1="", line2=""):
+def lcd_print(l1="", l2=""):
     lcd.clear()
-    lcd.write_string(line1[:16])
+    lcd.write_string(l1[:16])
     lcd.cursor_pos = (1, 0)
-    lcd.write_string(line2[:16])
+    lcd.write_string(l2[:16])
+
+# ------------------- GPIO SETUP -------------------
+GPIO.setmode(GPIO.BCM)
+
+IR_ISSUE = 17
+IR_RETURN = 26
+LED_GREEN = 22
+LED_RED = 23
+
+GPIO.setup(IR_ISSUE, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(IR_RETURN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+GPIO.setup(LED_GREEN, GPIO.OUT)
+GPIO.setup(LED_RED, GPIO.OUT)
+
+# LED STATES
+def ready_mode():
+    GPIO.output(LED_GREEN, True)
+    GPIO.output(LED_RED, False)
+
+def processing_mode():
+    GPIO.output(LED_GREEN, False)
+    GPIO.output(LED_RED, True)
+
+def idle_mode():
+    GPIO.output(LED_GREEN, False)
+    GPIO.output(LED_RED, False)
 
 # ------------------- CAMERA -------------------
 cap = cv2.VideoCapture(0)
@@ -26,14 +53,6 @@ cap.set(3, 640)
 cap.set(4, 480)
 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
-# ------------------- IR PINS -------------------
-IR_PIN_ISSUE = 17
-IR_PIN_RETURN = 26
-
-GPIO.setmode(GPIO.BCM)
-GPIO.setup(IR_PIN_ISSUE, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-GPIO.setup(IR_PIN_RETURN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-
 # ------------------- DATABASE -------------------
 db = mysql.connector.connect(
     host="localhost",
@@ -42,9 +61,6 @@ db = mysql.connector.connect(
     database="library"
 )
 cursor = db.cursor()
-
-lcd_print("Library System", "Starting...")
-time.sleep(2)
 
 # ------------------- SCAN FUNCTION -------------------
 def scan_qr(timeout=10):
@@ -61,20 +77,33 @@ def scan_qr(timeout=10):
 
     return None
 
+# ------------------- START -------------------
+lcd_print("Library System", "Starting...")
+time.sleep(2)
+
 # ------------------- MAIN LOOP -------------------
 while True:
 
+    # -------- IDLE → READY --------
+    idle_mode()
+    time.sleep(1)
+
+    ready_mode()
     lcd_print("Place Hand", "<-Return Issue->")
 
-    while not (GPIO.input(IR_PIN_ISSUE) or GPIO.input(IR_PIN_RETURN)):
+    # Wait for hand (ACTIVE LOW)
+    while GPIO.input(IR_ISSUE) and GPIO.input(IR_RETURN):
         time.sleep(0.1)
 
-    time.sleep(0.2)
+    time.sleep(0.2)  # debounce
 
-    if GPIO.input(IR_PIN_ISSUE):
+    # -------- PROCESS START --------
+    processing_mode()
+
+    if not GPIO.input(IR_ISSUE):
         mode = "ISSUE"
         lcd_print("ISSUE MODE", "Scan Book")
-    elif GPIO.input(IR_PIN_RETURN):
+    elif not GPIO.input(IR_RETURN):
         mode = "RETURN"
         lcd_print("RETURN MODE", "Scan Book")
     else:
@@ -82,7 +111,7 @@ while True:
 
     time.sleep(2)
 
-    # ---------------- BOOK SCAN ----------------
+    # -------- BOOK SCAN --------
     book_id = scan_qr()
 
     if not book_id:
@@ -92,8 +121,7 @@ while True:
 
     cursor.execute("""
         SELECT uid, bookname, available, issuedto, returndate
-        FROM bookdatabase
-        WHERE uid=%s
+        FROM bookdatabase WHERE uid=%s
     """, (book_id,))
     
     book = cursor.fetchone()
@@ -108,7 +136,7 @@ while True:
     lcd_print("Book:", bookname[:16])
     time.sleep(2)
 
-    # ---------------- USER SCAN ----------------
+    # -------- USER SCAN --------
     lcd_print("Scan ID Card", "")
     user_id = scan_qr()
 
@@ -127,7 +155,7 @@ while True:
 
     username = user[0]
 
-    # ---------------- ISSUE ----------------
+    # -------- ISSUE --------
     if mode == "ISSUE":
 
         if available == 1:
@@ -149,7 +177,7 @@ while True:
             lcd_print("Already Issued", "")
             time.sleep(2)
 
-    # ---------------- RETURN ----------------
+    # -------- RETURN --------
     else:
 
         if issuedto == user_id:
@@ -179,22 +207,23 @@ while True:
             lcd_print("Wrong User", "")
             time.sleep(2)
 
-    # ---------------- FINAL USER FLOW ----------------
-
-    # Thank you message
+    # -------- FINAL FLOW --------
     lcd_print("Thank You!", "Visit Again")
     time.sleep(2)
 
-    # processing delay
     lcd_print("Processing...", "")
     time.sleep(2)
 
-    # wait hand removal
     lcd_print("Remove Hand", "")
-    while GPIO.input(IR_PIN_ISSUE) or GPIO.input(IR_PIN_RETURN):
+
+    # Wait until hand removed (ACTIVE LOW fix)
+    while not (GPIO.input(IR_ISSUE) and GPIO.input(IR_RETURN)):
         time.sleep(0.1)
 
-    # next user buffer time
+    # back to idle before next user
+    idle_mode()
+    time.sleep(1)
+
     lcd_print("Next User", "Get Ready")
     time.sleep(2)
 
