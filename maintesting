@@ -179,15 +179,23 @@ while True:
             lcd_print("Wrong User", "")
             time.sleep(2)
 
-    # ---------------- FINAL FIX (IMPORTANT) ----------------
-    lcd_print("Remove Hand", "")
+    # ---------------- FINAL USER FLOW ----------------
+
+    # Thank you message
+    lcd_print("Thank You!", "Visit Again")
     time.sleep(2)
 
-    # 🔥 WAIT UNTIL SENSOR LOW
+    # processing delay
+    lcd_print("Processing...", "")
+    time.sleep(2)
+
+    # wait hand removal
+    lcd_print("Remove Hand", "")
     while GPIO.input(IR_PIN_ISSUE) or GPIO.input(IR_PIN_RETURN):
         time.sleep(0.1)
 
-    lcd_print("Ready", "Next User")
+    # next user buffer time
+    lcd_print("Next User", "Get Ready")
     time.sleep(2)
 
 # cleanup
