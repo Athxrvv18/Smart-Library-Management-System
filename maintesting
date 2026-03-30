@@ -19,14 +19,17 @@ def lcd_print(line1="", line2=""):
 cap = cv2.VideoCapture(0)
 cap.set(3, 640)
 cap.set(4, 480)
+cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)   # fast scan
 
 # ------------------- IR PINS -------------------
 IR_PIN_ISSUE = 17
 IR_PIN_RETURN = 26
 
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(IR_PIN_ISSUE, GPIO.IN)
-GPIO.setup(IR_PIN_RETURN, GPIO.IN)
+
+# 🔥 FIX: prevent floating pins
+GPIO.setup(IR_PIN_ISSUE, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+GPIO.setup(IR_PIN_RETURN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
 # ------------------- DATABASE -------------------
 db = mysql.connector.connect(
@@ -43,20 +46,25 @@ time.sleep(3)
 # ------------------- MAIN LOOP -------------------
 while True:
 
-    lcd_print("Place Hand", "Near Sensor")
+    lcd_print("Place Hand", "<-Return Issue->")
     print("Waiting for user...")
 
-    # Wait IR
+    # Wait IR trigger
     while not (GPIO.input(IR_PIN_ISSUE) or GPIO.input(IR_PIN_RETURN)):
         time.sleep(0.1)
 
-    # Detect mode
+    # 🔥 small delay (debounce)
+    time.sleep(0.2)
+
+    # 🔥 FIXED MODE DETECTION
     if GPIO.input(IR_PIN_ISSUE):
         mode = "ISSUE"
         lcd_print("ISSUE MODE", "Scan Book")
-    else:
+    elif GPIO.input(IR_PIN_RETURN):
         mode = "RETURN"
         lcd_print("RETURN MODE", "Scan Book")
+    else:
+        continue
 
     time.sleep(2)
 
@@ -100,7 +108,7 @@ while True:
     time.sleep(2)
 
     # ---------------- USER SCAN ----------------
-    lcd_print("Scan User ID", "")
+    lcd_print("Scan ID Card", "")
     user_id = None
 
     start_time = time.time()
